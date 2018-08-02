@@ -6,5 +6,6 @@ cd to `./NPLRuntime/Platform/XXX` and clone to `assets` folder there with all su
 ```
 git clone https://github.com/tatfook/ParacraftAssets assets
 cd assets
-git submodule init && git submodule update
+git submodule init
+git submodule update --recursive --remote
 ```
