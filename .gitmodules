@@ -1,6 +1,8 @@
 [submodule "npl_packages/main"]
 	path = npl_packages/main
 	url = https://github.com/nplpackages/main
+	branch = dev
 [submodule "npl_packages/paracraft"]
 	path = npl_packages/paracraft
 	url = https://github.com/nplpackages/paracraft
+	branch = master
