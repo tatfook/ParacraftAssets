@@ -21,6 +21,8 @@ local FILE_LIST_FILE_EXT = ".p"
 local next_value = 0;
 local try_redownload_amx_num = 3;
 AssetsManager.global_instances = {};
+AssetsManager.defaultVersionFilename = "version.txt";
+
 local function get_next_value()
     next_value = next_value + 1;
     return next_value;
@@ -97,7 +99,7 @@ end
 function AssetsManager:onInit(writeablePath,config_filename,event_callback,moving_file_callback)
     local storagePath = writeablePath .. "caches/";
     local destStoragePath = writeablePath;
-	local localVersionTxt = writeablePath .. "version.txt";
+	local localVersionTxt = writeablePath .. AssetsManager.defaultVersionFilename;
 
     self.writeablePath = writeablePath;
     self.storagePath = storagePath;
@@ -106,7 +108,7 @@ function AssetsManager:onInit(writeablePath,config_filename,event_callback,movin
     self.localVersionTxt = localVersionTxt;
     self._cacheVersionPath = storagePath .. "version.manifest";
     self._cacheManifestPath = storagePath .. "project.manifest";
-    self._asstesCachesPath = nil;
+    self._assetsCachesPath = nil;
 
     self.moving_file_callback = moving_file_callback
 
@@ -146,6 +148,11 @@ end
 function AssetsManager:check(version,callback)
     self:callback(self.State.PREDOWNLOAD_VERSION);
     self._hasVersionFile = ParaIO.DoesFileExist(self.localVersionTxt);
+	if(not self._hasVersionFile and self.localVersionTxt~=AssetsManager.defaultVersionFilename) then
+		self.localVersionTxt = AssetsManager.defaultVersionFilename;
+		self._hasVersionFile = ParaIO.DoesFileExist(self.localVersionTxt);
+	end
+
     self._manifestTxt = "";
     self._totalSize = 0;
 
@@ -154,14 +161,14 @@ function AssetsManager:check(version,callback)
     else
         self._curVersion = version;
     end
-	LOG.std(nil, "debug", "AssetsManager", "local version is: %s",self._curVersion);
+	LOG.std(nil, "info", "AssetsManager", "local version is: %s",self._curVersion);
     self:downloadVersion(function()
-	    LOG.std(nil, "debug", "AssetsManager", "remote version is: %s",self._latestVersion);
+	    LOG.std(nil, "info", "AssetsManager", "remote version is: %s",self._latestVersion);
         self._comparedVersion = self:compareVersions();
-	    LOG.std(nil, "debug", "AssetsManager", "compared result is: %d",self._comparedVersion);
-        self._asstesCachesPath = self.storagePath .. self._latestVersion;
-	    LOG.std(nil, "debug", "AssetsManager", "Assets Cach Path is: %s",self._asstesCachesPath);
-	    ParaIO.CreateDirectory(self._asstesCachesPath);
+	    LOG.std(nil, "info", "AssetsManager", "compared result is: %d",self._comparedVersion);
+        self._assetsCachesPath = self.storagePath .. self._latestVersion;
+	    LOG.std(nil, "info", "AssetsManager", "Assets Cache Path is: %s",self._assetsCachesPath);
+	    ParaIO.CreateDirectory(self._assetsCachesPath);
         self:callback(self.State.VERSION_CHECKED);
         if(callback)then
             callback();
@@ -178,7 +185,9 @@ function AssetsManager:loadLocalVersion()
             local __,v = string.match(txt,"(.+)=(.+)");
             self._curVersion = v;
         end
-    end
+	else
+		LOG.std(nil, "warn", "AssetsManager", "file %s not FOUND", self.localVersionTxt);	
+	end
 end
 function AssetsManager:downloadVersion(callback)
     local version_url = self.configs.version_url;
@@ -228,22 +237,28 @@ function AssetsManager:compareVersions()
 
     local cur_version_list = get_versions(self._curVersion);
     local latestVersion_list = get_versions(self._latestVersion);
+
     if(#cur_version_list < 3 or #latestVersion_list < 3)then
 		return self.CheckVersionEnum.CheckVersion_Error;
     end
     if(cur_version_list[1] < latestVersion_list[1])then
         self._needUpdate = true;
 		return self.CheckVersionEnum.CheckVersion_FirstVersionChanged;
+	elseif(cur_version_list[1] == latestVersion_list[1]) then
+		if(cur_version_list[2] < latestVersion_list[2])then
+			self._needUpdate = true;
+			return self.CheckVersionEnum.CheckVersion_SecondVersionChanged;
+		elseif(cur_version_list[2] == latestVersion_list[2])then
+			if(cur_version_list[3] < latestVersion_list[3])then
+				self._needUpdate = true;
+				return self.CheckVersionEnum.CheckVersion_ThirdVersionChanged;
+			elseif(cur_version_list[3] == latestVersion_list[3])then
+				self._needUpdate = false;
+				return self.CheckVersionEnum.CheckVersion_SameAsLast;
+			end
+		end
     end
-    if(cur_version_list[2] < latestVersion_list[2])then
-        self._needUpdate = true;
-		return self.CheckVersionEnum.CheckVersion_SecondVersionChanged;
-    end
-	if(cur_version_list[3] < latestVersion_list[3])then
-		self._needUpdate = true;
-		return self.CheckVersionEnum.CheckVersion_ThirdVersionChanged;
-	end
-
+	self._needUpdate = false;
 	return self.CheckVersionEnum.CheckVersion_LocalVersionIsNewer;
 end
 
@@ -334,7 +349,7 @@ function AssetsManager:parseManifest(data)
                 local download_path = string.format("%s,%s,%s.p", filename, md5, size);
                 local download_unit = {
                     srcUrl = string.format("%scoredownload/update/%s", hostServer, download_path),
-                    storagePath = self._asstesCachesPath .. "/" .. filename,
+                    storagePath = self._assetsCachesPath .. "/" .. filename,
                     customId = filename,
                     hasDownloaded = false,
                     totalFileSize = file_size,
@@ -500,7 +515,7 @@ function AssetsManager:apply()
         local storagePath = v.storagePath;
         local indexOfLastSeparator = string.find(storagePath, ".[^.]*$");
         local name = string.sub(storagePath,0,indexOfLastSeparator-1);
-        local app_dest_folder = string.gsub(name,self._asstesCachesPath,"");
+        local app_dest_folder = string.gsub(name,self._assetsCachesPath,"");
         app_dest_folder = self.writeablePath .. app_dest_folder;
         if (not self:checkMD5(storagePath,v.md5)) then
 	        LOG.std(nil, "error", "AssetsManager", "failed to compare md5 file: %s",storagePath);
@@ -514,7 +529,7 @@ function AssetsManager:apply()
 			else
                 local version_filename = ParaIO.GetFileName(app_dest_folder);
                 version_filename = string.lower(version_filename);
-				if (version_filename ~= "version.txt")then
+				if (version_filename ~= AssetsManager.defaultVersionFilename)then
                     if(ParaIO.DeleteFile(storagePath) ~= 1)then
 	                    LOG.std(nil, "error", "AssetsManager", "failed to delete file: %s",storagePath);
                     end
