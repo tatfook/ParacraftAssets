@@ -55,6 +55,7 @@ AssetsManager.CheckVersionEnum = {
 	CheckVersion_FirstVersionChanged = 1,
 	CheckVersion_SecondVersionChanged = 2,
 	CheckVersion_ThirdVersionChanged = 3,
+	CheckVersion_LocalVersionIsNewer = 100,
     CheckVersion_Error = -1
 };
 function AssetsManager:ctor()
@@ -219,9 +220,8 @@ function AssetsManager:compareVersions()
 
     local function get_versions(version_str)
         local result = {};
-        local s;
-        for s in string.gfind(version_str, "[^.]+") do
-            table.insert(result,s);
+        for s in string.gfind(version_str, "%d+") do
+            table.insert(result, tonumber(s));
 		end
         return result;
     end
@@ -231,17 +231,22 @@ function AssetsManager:compareVersions()
     if(#cur_version_list < 3 or #latestVersion_list < 3)then
 		return self.CheckVersionEnum.CheckVersion_Error;
     end
-    if(cur_version_list[1] ~= latestVersion_list[1])then
+    if(cur_version_list[1] < latestVersion_list[1])then
         self._needUpdate = true;
 		return self.CheckVersionEnum.CheckVersion_FirstVersionChanged;
     end
-    if(cur_version_list[2] ~= latestVersion_list[2])then
+    if(cur_version_list[2] < latestVersion_list[2])then
         self._needUpdate = true;
 		return self.CheckVersionEnum.CheckVersion_SecondVersionChanged;
     end
-	self._needUpdate = true;
-	return self.CheckVersionEnum.CheckVersion_ThirdVersionChanged;
+	if(cur_version_list[3] < latestVersion_list[3])then
+		self._needUpdate = true;
+		return self.CheckVersionEnum.CheckVersion_ThirdVersionChanged;
+	end
+
+	return self.CheckVersionEnum.CheckVersion_LocalVersionIsNewer;
 end
+
 -- step 2. download asset manifest and download assets
 function AssetsManager:download()
 	if (not self._needUpdate)then
