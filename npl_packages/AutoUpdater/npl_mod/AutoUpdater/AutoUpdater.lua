@@ -28,3 +28,11 @@ local AutoUpdater = commonlib.inherit(AssetsManager, NPL.export());
 function AutoUpdater:ctor()
 end
 
+-- virtual function: relative path like "database/globalstore.db", sometimes we may need to secretely change the case or filename. 
+function AutoUpdater:FilterStoragePath(filename)
+	return filename;
+end
+
+-- virtual function: return true if one wants to skip downloading the given filename
+function AutoUpdater:FilterFile(filename)
+end

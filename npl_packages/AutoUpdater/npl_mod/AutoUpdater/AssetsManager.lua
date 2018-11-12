@@ -8,8 +8,7 @@ use the lib:
 -- step 2. download asset manifest and download assets
 -- step 3. decompress and move files
 ------------------------------------------------------------
-NPL.load("npl_mod/AutoUpdater/AssetsManager.lua");
-local AssetsManager = commonlib.gettable("Mod.AutoUpdater.AssetsManager");
+local AssetsManager = NPL.load("AutoUpdater");
 ------------------------------------------------------------
 ]]
 NPL.load("(gl)script/ide/XPath.lua");
@@ -148,7 +147,7 @@ end
 function AssetsManager:check(version,callback)
     self:callback(self.State.PREDOWNLOAD_VERSION);
     self._hasVersionFile = ParaIO.DoesFileExist(self.localVersionTxt);
-	if(not self._hasVersionFile and self.localVersionTxt~=AssetsManager.defaultVersionFilename) then
+	if(not self._hasVersionFile and self.localVersionTxt == (ParaIO.GetWritablePath()..AssetsManager.defaultVersionFilename)) then
 		self.localVersionTxt = AssetsManager.defaultVersionFilename;
 		self._hasVersionFile = ParaIO.DoesFileExist(self.localVersionTxt);
 	end
@@ -325,6 +324,7 @@ function AssetsManager:getPatchListUrl(is_full_list, nCandidate)
 		return hostServer .. "coredownload/" .. self._latestVersion .. "/list/patch_" .. self._curVersion .. FILE_LIST_FILE_EXT;
 	end
 end
+
 function AssetsManager:parseManifest(data)
     local hostServer = self.configs.hosts[self.validHostIndex];
 	LOG.std(nil, "debug", "AssetsManager", "the valid host server is: %s",hostServer);
@@ -342,38 +342,52 @@ function AssetsManager:parseManifest(data)
             local arr = split(line);
             if(#arr > 2)then
                 local filename = arr[1];
-				local md5 = arr[2];
-				local size = arr[3];
-                local file_size = tonumber(size) or 0;
-				self._totalSize = self._totalSize + file_size;
-                local download_path = string.format("%s,%s,%s.p", filename, md5, size);
-                local download_unit = {
-                    srcUrl = string.format("%scoredownload/update/%s", hostServer, download_path),
-                    storagePath = self._assetsCachesPath .. "/" .. filename,
-                    customId = filename,
-                    hasDownloaded = false,
-                    totalFileSize = file_size,
-                    PercentDone = 0,
-                    md5 = md5,
-                }
-                if(ParaIO.DoesFileExist(download_unit.storagePath))then
-                    if(self:checkMD5(download_unit.storagePath,md5))then
-	                    LOG.std(nil, "debug", "AssetsManager", "this file has existed: %s",download_unit.storagePath);
-                        download_unit.hasDownloaded = true;
-                    end
-                end
-                table.insert(self._downloadUnits,download_unit);
+				if(not self:FilterFile(filename)) then
+					local md5 = arr[2];
+					local size = arr[3];
+					local file_size = tonumber(size) or 0;
+					self._totalSize = self._totalSize + file_size;
+					local download_path = string.format("%s,%s,%s.p", filename, md5, size);
+					local download_unit = {
+						srcUrl = string.format("%scoredownload/update/%s", hostServer, download_path),
+						storagePath = self._assetsCachesPath .. "/" .. self:FilterStoragePath(filename),
+						customId = filename,
+						hasDownloaded = false,
+						totalFileSize = file_size,
+						PercentDone = 0,
+						md5 = md5,
+					}
+					if(ParaIO.DoesFileExist(download_unit.storagePath))then
+						if(self:checkMD5(download_unit.storagePath,md5))then
+							LOG.std(nil, "debug", "AssetsManager", "this file has existed: %s",download_unit.storagePath);
+							download_unit.hasDownloaded = true;
+						end
+					end
+					table.insert(self._downloadUnits,download_unit);
+				end
             end
         end
     end
 end
-function AssetsManager:checkMD5(finename,md5)
-    local file = ParaIO.open(finename,"r");
+
+-- virtual function: return true if one wants to skip downloading the given filename
+function AssetsManager:FilterFile(filename)
+	
+end
+
+-- virtual function: relative path like "database/globalstore.db", sometimes we may need to secretely change the case or filename. 
+function AssetsManager:FilterStoragePath(filename)
+	return filename;
+end
+
+
+function AssetsManager:checkMD5(filename,md5)
+    local file = ParaIO.open(filename,"r");
     if(file:IsValid()) then
         local txt = file:GetText(0,-1);
         local v = ParaMisc.md5(txt);
+        file:close();
         return v == md5;
-
     end
 end
 function AssetsManager:downloadAssets()
@@ -397,6 +411,7 @@ function AssetsManager:downloadNextAsset(index)
         else
             -- finished
 	        LOG.std(nil, "debug", "AssetsManager", "all of assets have been downloaded");
+			self:setAllDownloaded();
             self:callback(self.State.ASSETS_DOWNLOADED);
         end
         return
@@ -473,6 +488,14 @@ function AssetsManager:getDownloadedSize()
     return self:getPercent() * self._totalSize
 end
 
+function AssetsManager:isAllDownloaded()
+	return self.isAllDownloaded_;
+end
+
+function AssetsManager:setAllDownloaded()
+	self.isAllDownloaded_ = true;
+end
+
 -- step 3. decompress and move files
 function AssetsManager:apply()
     self:callback(self.State.PREUPDATE);
@@ -494,6 +517,25 @@ function AssetsManager:apply()
                 break;
             end
             if(not has_error)then
+                -- if the version.txt isn't existed in the latest assets
+                -- create it with the latest_version in caches folder
+                if(not version_name)then
+                    local latest_version = self:getLatestVersion();
+                    if(not latest_version)then
+	                    LOG.std(nil, "error", "AssetsManager", "can't find latest version to update at last");
+                        self:callback(self.State.FAIL_TO_UPDATED);
+                        return
+                    end
+                    version_name = string.format("%s/%s/%s",self.storagePath, latest_version, AssetsManager.defaultVersionFilename);
+                    local file = ParaIO.open(version_name, "w");
+				    if(file:IsValid()) then
+                        local content = string.format("ver=%s\n",latest_version);
+					    file:WriteString(content);
+					    file:close();
+				    end
+                    version_abs_app_dest_folder = string.format("%s/%s",self.writeablePath,AssetsManager.defaultVersionFilename);
+                end
+
                 -- version.txt
                 if(ParaIO.DeleteFile(version_storagePath) ~= 1)then
 	                LOG.std(nil, "error", "AssetsManager", "failed to delete file: %s",version_storagePath);
