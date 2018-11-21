@@ -67,7 +67,7 @@ function AssetsManager:ctor()
         hosts = {},
     }
 
-    self.writeablePath = nil;
+    self.writablePath = nil;
     self.storagePath = nil;
     self.destStoragePath = nil;
 
@@ -95,12 +95,12 @@ function AssetsManager:ctor()
     self._totalSize = 0;
 end
 
-function AssetsManager:onInit(writeablePath,config_filename,event_callback,moving_file_callback)
-    local storagePath = writeablePath .. "caches/";
-    local destStoragePath = writeablePath;
-	local localVersionTxt = writeablePath .. AssetsManager.defaultVersionFilename;
+function AssetsManager:onInit(writablePath,config_filename,event_callback,moving_file_callback)
+    local storagePath = writablePath .. "caches/";
+    local destStoragePath = writablePath;
+	local localVersionTxt = writablePath .. AssetsManager.defaultVersionFilename;
 
-    self.writeablePath = writeablePath;
+    self.writablePath = writablePath;
     self.storagePath = storagePath;
     self.destStoragePath = destStoragePath;
 
@@ -533,7 +533,7 @@ function AssetsManager:apply()
 					    file:WriteString(content);
 					    file:close();
 				    end
-                    version_abs_app_dest_folder = string.format("%s/%s",self.writeablePath,AssetsManager.defaultVersionFilename);
+                    version_abs_app_dest_folder = self.writablePath .. AssetsManager.defaultVersionFilename;
                 end
 
                 -- version.txt
@@ -558,7 +558,8 @@ function AssetsManager:apply()
         local indexOfLastSeparator = string.find(storagePath, ".[^.]*$");
         local name = string.sub(storagePath,0,indexOfLastSeparator-1);
         local app_dest_folder = string.gsub(name,self._assetsCachesPath,"");
-        app_dest_folder = self.writeablePath .. app_dest_folder;
+		app_dest_folder = app_dest_folder:gsub("^/", "");
+        app_dest_folder = self.writablePath .. app_dest_folder;
         if (not self:checkMD5(storagePath,v.md5)) then
 	        LOG.std(nil, "error", "AssetsManager", "failed to compare md5 file: %s",storagePath);
 			self._failedUpdateFiles[app_dest_folder] = self.UpdateFailedReason.MD5;
@@ -619,7 +620,7 @@ function AssetsManager:decompress(sourceFileName,destFileName)
     return false;
 end
 function AssetsManager:deleteOldFiles()
-    local delete_file_path = string.format("%sdeletefile.list", self.writeablePath);
+    local delete_file_path = string.format("%sdeletefile.list", self.writablePath);
 	LOG.std(nil, "debug", "AssetsManager", "beginning delete old files from:%s",delete_file_path);
     local file = ParaIO.open(delete_file_path,"r");
     if(file:IsValid())then
@@ -627,7 +628,7 @@ function AssetsManager:deleteOldFiles()
         local name;
         for name in string.gfind(content, "[^,]+") do
             name = string.gsub(name,"%s","");
-			local full_path = string.format("%s%s", self.writeablePath, name);
+			local full_path = string.format("%s%s", self.writablePath, name);
             if(ParaIO.DoesFileExist(full_path))then
                 if(not ParaIO.DeleteFile(full_path) ~= 1)then
 	                LOG.std(nil, "waring", "AssetsManager", "can't delete the file:%s",full_path);
