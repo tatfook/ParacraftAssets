@@ -557,7 +557,11 @@ function AssetsManager:apply()
         local storagePath = v.storagePath;
         local indexOfLastSeparator = string.find(storagePath, ".[^.]*$");
         local name = string.sub(storagePath,0,indexOfLastSeparator-1);
-        local app_dest_folder = string.gsub(name,self._assetsCachesPath,"");
+        local app_dest_folder = name;
+		if(name:sub(1, #self._assetsCachesPath) == self._assetsCachesPath) then
+			app_dest_folder =  name:sub(#self._assetsCachesPath+1, -1);
+		end
+
 		app_dest_folder = app_dest_folder:gsub("^/", "");
         app_dest_folder = self.writablePath .. app_dest_folder;
         if (not self:checkMD5(storagePath,v.md5)) then
