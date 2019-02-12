@@ -18,7 +18,7 @@ local ZipFile = commonlib.gettable("System.Util.ZipFile");
 local AssetsManager = commonlib.inherit(nil,commonlib.gettable("Mod.AutoUpdater.AssetsManager"));
 local FILE_LIST_FILE_EXT = ".p"
 local next_value = 0;
-local try_redownload_amx_num = 3;
+local try_redownload_max_num = 3;
 AssetsManager.global_instances = {};
 AssetsManager.defaultVersionFilename = "version.txt";
 
@@ -194,23 +194,27 @@ function AssetsManager:downloadVersion(callback)
         self:callback(self.State.DOWNLOADING_VERSION);
 	    LOG.std(nil, "debug", "AssetsManager:downloadVersion url is:", version_url);
         System.os.GetUrl(version_url, function(err, msg, data)
+			self._latestVersion = nil
 	        if(err == 200)then
                 if(data)then
                     local body = "<root>" .. data .. "</root>";
                     local xmlRoot = ParaXML.LuaXML_ParseString(body);
                     if(xmlRoot)then
-                        local node;
-	                    for node in commonlib.XPath.eachNode(xmlRoot, "//UpdateVersion") do
+                        for node in commonlib.XPath.eachNode(xmlRoot, "//UpdateVersion") do
                             self._latestVersion = node[1];
                             break;
 	                    end
                         if(callback)then
-                            callback();
+							if(self._latestVersion) then
+								callback();
+								return
+							end
                         end
                     end
                 end
-            else
-				LOG.std(nil, "debug", "AssetsManager:downloadVersion err", err);
+            end
+			if(not self._latestVersion) then
+				LOG.std(nil, "debug", "AssetsManager:downloadVersion err:", err);
                 self:callback(self.State.VERSION_ERROR);
             end
         end);
@@ -401,7 +405,7 @@ function AssetsManager:downloadNextAsset(index)
         local len = #self._failedDownloadUnits;
         if(len > 0)then
 	        LOG.std(nil, "debug", "AssetsManager", "download assets uncompleted by loop:%d",self.try_num);
-            if(self.try_num < try_redownload_amx_num)then
+            if(self.try_num < try_redownload_max_num)then
                 self.try_num = self.try_num + 1;
                 self._failedDownloadUnits = {};
                 self:downloadAssets();
@@ -517,7 +521,7 @@ function AssetsManager:apply()
                 break;
             end
             if(not has_error)then
-                -- if the version.txt isn't existed in the latest assets
+                -- if the version.txt does not exist in the latest assets
                 -- create it with the latest_version in caches folder
                 if(not version_name)then
                     local latest_version = self:getLatestVersion();
