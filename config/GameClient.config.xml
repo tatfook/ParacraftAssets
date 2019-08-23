@@ -9,12 +9,12 @@
   </npc_files>
 
   <!--the asset server-->
-  <asset_server_addresses bg_loader_list ="http://update.61.com/haqi/assetupdate">
-        <address host="http://update.61.com/haqi/assetupdate/"/>
+  <asset_server_addresses bg_loader_list ="http://cdn.keepwork.com/update61/assetdownload/update/">
+        <address host="http://cdn.keepwork.com/update61/assetdownload/update/"/>
   </asset_server_addresses>
   
   <patch_server_addresses>
-    <address host="http://update.61.com/haqi/coreupdate/" version_host="http://tmlog.paraengine.com/"/>
+    <address host="http://cdn.keepwork.com/update61/" version_host="http://tmlog.paraengine.com/"/>
   </patch_server_addresses>
 
   <chat_server_addresses api_file="config/JabberAPI.config.xml" domain="tm.test.pala5.cn">
@@ -32,7 +32,7 @@
   <world_server_addresses>
     <address host="120.132.120.187" port="8868" port2="80" whereipfrom="电信" nid="1001" allow_login="true"/>
     <address host="120.132.120.188" port="8868" port2="80" whereipfrom="电信"  nid="1004" allow_login="true"/>
-    <address host="120.132.120.189" port="8868" port2="80" whereipfrom="电信"  nid="1005" allow_login="true"/>
+    <address host="120.132.120.189" port="8868" port2="80" whereipfrom="电信"  nid="1005"/>
   </world_server_addresses>
   <platforms>
     <!--only trusted domain can be used as callback. -->
