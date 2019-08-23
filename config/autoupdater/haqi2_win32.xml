@@ -1,7 +1,6 @@
 <configs>
-  <version>http://teenver.paraengine.com/version.php</version>
+  <version>http://cdn.keepwork.com/haqi2/version</version>
   <hosts>
-    <host>http://update.61.com/haqi/coreupdate_teen/</host>
-    <host>http://teenver.paraengine.com/</host>
+    <host>http://cdn.keepwork.com/haqi2/</host>
   </hosts>
 </configs>
